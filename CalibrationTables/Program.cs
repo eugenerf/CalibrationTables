@@ -756,7 +756,7 @@ namespace CalibrationTables
                 CT[CT.Length - 1].ChangeLevelBase(DefaultLevelBase);
             }
 
-            TXTFile txt = new TXTFile(  //создали, записали TXT файлы
+            TXTFile txt = new TXTFile(  //создали и записали TXT файлы
                 FileEventProcessor,
                 FileEventProcessor,
                 FileEventProcessor,
