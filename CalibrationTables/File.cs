@@ -7,6 +7,7 @@ using System.Windows.Forms;
 using Word = Microsoft.Office.Interop.Word;
 using Office = Microsoft.Office.Core;
 using DataProcesssingLibrary;
+using WordReader;
 
 namespace FileLibrary   //работа с файлами
 {

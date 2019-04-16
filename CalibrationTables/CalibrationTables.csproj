@@ -94,6 +94,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="DataProcessing.cs" />
+    <Compile Include="docParser.cs" />
+    <Compile Include="docxParser.cs" />
     <Compile Include="File.cs" />
     <Compile Include="Menu.cs" />
     <Compile Include="Program.cs" />
