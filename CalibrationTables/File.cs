@@ -4,8 +4,6 @@ using System.Collections.Generic;
 using System.Text;
 using System.Linq;
 using System.Windows.Forms;
-using Word = Microsoft.Office.Interop.Word;
-using Office = Microsoft.Office.Core;
 using DataProcesssingLibrary;
 using WordReader;
 
@@ -19,8 +17,6 @@ namespace FileLibrary   //работа с файлами
         //события
         protected internal event DOCFileStateHandler FileRead;
         protected internal event DOCFileStateHandler ManyFilesRead;
-        protected internal event DOCFileStateHandler FileOpened;
-        protected internal event DOCFileStateHandler FileClosed;
 
         //поля
         protected internal string[] filePath;          //пути к документам
@@ -50,38 +46,16 @@ namespace FileLibrary   //работа с файлами
             CallEvent(e, FileRead);
             Console.ForegroundColor = cc;
         }
-
-        protected virtual void OnFileOpened(FileEventArgs e) //при открытии файла
-        {
-            ConsoleColor cc = Console.ForegroundColor;
-            if (e.Success) Console.ForegroundColor = ConsoleColor.Green;
-            else Console.ForegroundColor = ConsoleColor.Red;
-            CallEvent(e, FileOpened);
-            Console.ForegroundColor = cc;
-        }
-
-        protected virtual void OnFileClosed(FileEventArgs e)    //при закрытии файла
-        {
-            ConsoleColor cc = Console.ForegroundColor;
-            if (e.Success) Console.ForegroundColor = ConsoleColor.Green;
-            else Console.ForegroundColor = ConsoleColor.Red;
-            CallEvent(e, FileClosed);
-            Console.ForegroundColor = cc;
-        }
         #endregion
 
         #region  конструкторы
         public DOCFile(
-            DOCFileStateHandler openFileHandler,
             DOCFileStateHandler readFileHandler,
-            DOCFileStateHandler manyFilesReadHandler,
-            DOCFileStateHandler closeFileHandler)
+            DOCFileStateHandler manyFilesReadHandler)
         {
             //добавили обработчики событий в стеки
-            FileOpened += openFileHandler;
             FileRead += readFileHandler;
             ManyFilesRead += manyFilesReadHandler;
-            FileClosed += closeFileHandler;
 
             //инициализировали поля
             filePath = null;
@@ -91,44 +65,6 @@ namespace FileLibrary   //работа с файлами
         #endregion
 
         #region  методы private
-        private string _readFile(   //чтение заданного документа
-            string path,              //путь к документу (для генерации события)
-            Word.Document document,     //заданный документ
-            bool Quiet = false)
-        {
-            Word.Range Rng = document.Range();    //берем все содержимое файла
-            string res = Rng?.Text;                //и если оно существует, сохраняем в res
-
-            //генерируем событие
-            if (!Quiet)
-            {
-                int pos = path.LastIndexOf('\\') + 1;
-                if (res == null)
-                    OnFileRead(new FileEventArgs(false, "Не удалось прочитать файл: " + path.Substring(pos)));
-                else
-                    OnFileRead(new FileEventArgs(true, "Прочитан файл: " + path.Substring(pos)));
-            }
-
-            return res;
-        }
-
-        private void _closeFile(            //закрытие заданного файла
-            string path,                    //путь к документу (для генерации события)
-            ref Word.Document document,
-            ref Word.Application application,   //экземпляр word
-            bool Quiet = false)
-        {
-            //просто закрыли соответствующий экземпляр Word
-            application.Quit();
-
-            //генерируем событие
-            if (!Quiet)
-            {
-                int pos = path.LastIndexOf('\\') + 1;
-                OnFileClosed(new FileEventArgs(true, "Закрыт файл: " + path.Substring(pos)));
-            }
-        }
-
         private string _chooseFile()   //выбор файла для чтения
         {
             //диалог открытия файла
@@ -146,61 +82,6 @@ namespace FileLibrary   //работа с файлами
 
             return result;
         }
-
-        private void _openFile(                 //открытие заданного документа
-            string path,                        //путь к документу
-            out Word.Application application,   //возвращаемый экземпляр word
-            out Word.Document document,         //возвращаемый читаемый документ
-            bool Quiet = false)
-        {
-            //задаем параметры открытия
-            object fileName = path;
-            object confirmConversions = false;
-            object readOnly = Type.Missing;
-            object addToRecentFiles = false;
-            object passwordDocument = Type.Missing;
-            object passwordTemplate = Type.Missing;
-            object revert = Type.Missing;
-            object writePasswordDocument = Type.Missing;
-            object writePasswordTemplate = Type.Missing;
-            object format = Type.Missing;
-            object encoding = Office.MsoEncoding.msoEncodingAutoDetect;
-            object visible = Type.Missing;
-            object openConflictDocument = Type.Missing;
-            object openAndRepair = Type.Missing;
-            object documentDirection = Type.Missing;
-            object noEncodingDialog = true;
-
-            application = new Word.Application();    //создаем экземпляр Word
-
-            //открываем в нем документ
-            application.Documents.Open(ref fileName,
-                ref confirmConversions,
-                ref readOnly,
-                ref addToRecentFiles,
-                ref passwordDocument,
-                ref passwordTemplate,
-                ref revert,
-                ref writePasswordDocument,
-                ref writePasswordTemplate,
-                ref format,
-                ref encoding,
-                ref visible,
-                ref openAndRepair,
-                ref documentDirection,
-                ref noEncodingDialog);
-
-            //сохраняем ссылку на открытый документ
-            document = new Word.Document();
-            document = application.Documents.Application.ActiveDocument;
-
-            //генерируем событие
-            if (!Quiet)
-            {
-                int pos = path.LastIndexOf('\\') + 1;
-                OnFileOpened(new FileEventArgs(true, "Открыт файл: " + path.Substring(pos)));
-            }
-        }
         #endregion
 
         #region методы protected internal
@@ -211,21 +92,53 @@ namespace FileLibrary   //работа с файлами
             tmpFilePath = _chooseFile();   //выбор файла
             if (tmpFilePath != null)
             {
+                //классы для чтения файла
+                docParser docFile = null;
+                docxParser docxFile = null;
+
                 //временные переменные
-                Word.Application tmpWordApp;
-                Word.Document tmpWordDOC;
-                string tmpFileData = "";
+                string tmpFileData = null;
                 string tmpFileId = "";
 
                 //заполнили ID файла
-                int start = tmpFilePath.LastIndexOf('\\') + 1,
-                    stop = tmpFilePath.IndexOf('.', start);
-                tmpFileId = tmpFilePath.Substring(start, stop - start);
+                tmpFileId = Path.GetFileNameWithoutExtension(tmpFilePath);
 
-                _openFile(tmpFilePath, out tmpWordApp, out tmpWordDOC);     //откроем
-                tmpFileData = _readFile(tmpFilePath, tmpWordDOC);           //прочитаем
-                _closeFile(tmpFilePath, ref tmpWordDOC, ref tmpWordApp);    //закроем
+                switch (Path.GetExtension(tmpFilePath).ToLower())    //определим расширение выбранного файла
+                {
+                    case ".doc":    //читаем как DOC
+                        docFile = new docParser(tmpFilePath);
+                        if (docFile?.docIsOK == true)
+                        {
+                            tmpFileData = docFile.getText();
+                            OnFileRead(new FileEventArgs(true, "Прочитан файл: " + Path.GetFileName(tmpFilePath)));
+                        }
+                        break;
+                    case ".docx":   //читаем как DOCX
+                        docxFile = new docxParser(tmpFilePath);
+                        if (docxFile?.docxIsOK == true)
+                        {
+                            tmpFileData = docxFile.getText();
+                            OnFileRead(new FileEventArgs(true, "Прочитан файл: " + Path.GetFileName(tmpFilePath)));
+                        }
+                        break;
+                }
 
+                if (tmpFileData == null)    //если прочитать как DOC и DOCX не удалось
+                {
+                    //читаем как текстовый файл                    
+                    try
+                    {
+                        StreamReader sr = new StreamReader(File.OpenRead(tmpFilePath), Encoding.Default);
+                        tmpFileData = sr.ReadToEnd();
+                        OnFileRead(new FileEventArgs(true, "Прочитан файл: " + Path.GetFileName(tmpFilePath)));
+                    }
+                    catch (Exception)
+                    {
+                        OnFileRead(new FileEventArgs(false, "Не удалось прочитать файл: " + Path.GetFileName(tmpFilePath)));
+                        return;
+                    }
+                }
+               
                 if (tmpFileData.IndexOf(TextPattern.FileIsCorrect) != -1)   //проверяем, что файл нам подходит
                 {
                     //---==сохраним данные по документам
@@ -266,20 +179,52 @@ namespace FileLibrary   //работа с файлами
                     {
                         totalFiles++;   //увеличим счетчик документов word
 
+                        //классы для чтения файла
+                        docParser docFile = null;
+                        docxParser docxFile = null;
+
                         //временные переменные
-                        Word.Application tmpWordApp;
-                        Word.Document tmpWordDOC;
-                        string tmpFileData = "";
+                        string tmpFileData = null;
                         string tmpFileId = "";
 
                         //заполнили ID файла
-                        int start = tmpFilePath.LastIndexOf('\\') + 1,
-                            stop = tmpFilePath.IndexOf('.', start);
-                        tmpFileId = tmpFilePath.Substring(start, stop - start);
+                        tmpFileId = Path.GetFileNameWithoutExtension(tmpFilePath);
 
-                        _openFile(tmpFilePath, out tmpWordApp, out tmpWordDOC, Quiet);     //откроем
-                        tmpFileData = _readFile(tmpFilePath, tmpWordDOC, Quiet);           //прочитаем
-                        _closeFile(tmpFilePath, ref tmpWordDOC, ref tmpWordApp, Quiet);                        //закроем
+                        switch (Path.GetExtension(tmpFilePath).ToLower())    //определим расширение выбранного файла
+                        {
+                            case ".doc":    //читаем как DOC
+                                docFile = new docParser(tmpFilePath);
+                                if (docFile?.docIsOK == true)
+                                {
+                                    tmpFileData = docFile.getText();
+                                    OnFileRead(new FileEventArgs(true, "Прочитан файл: " + Path.GetFileName(tmpFilePath)));
+                                }
+                                break;
+                            case ".docx":   //читаем как DOCX
+                                docxFile = new docxParser(tmpFilePath);
+                                if (docxFile?.docxIsOK == true)
+                                {
+                                    tmpFileData = docxFile.getText();
+                                    OnFileRead(new FileEventArgs(true, "Прочитан файл: " + Path.GetFileName(tmpFilePath)));
+                                }
+                                break;
+                        }
+
+                        if (tmpFileData == null)    //если прочитать как DOC и DOCX не удалось
+                        {
+                            //читаем как текстовый файл                    
+                            try
+                            {
+                                StreamReader sr = new StreamReader(File.OpenRead(tmpFilePath), Encoding.Default);
+                                tmpFileData = sr.ReadToEnd();
+                                OnFileRead(new FileEventArgs(true, "Прочитан файл: " + Path.GetFileName(tmpFilePath)));
+                            }
+                            catch (Exception)
+                            {
+                                OnFileRead(new FileEventArgs(false, "Не удалось прочитать файл: " + Path.GetFileName(tmpFilePath)));
+                                continue;
+                            }
+                        }
 
                         if (tmpFileData.IndexOf(TextPattern.FileIsCorrect) != -1)   //проверяем, что файл нам подходит
                         {

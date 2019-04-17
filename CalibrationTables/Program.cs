@@ -676,8 +676,6 @@ namespace CalibrationTables
             //открыли, прочитали DOC файл
             DOCFile doc = new DOCFile(
                 FileEventProcessor,
-                FileEventProcessor,
-                FileEventProcessor,
                 FileEventProcessor);
 
             doc.ReadOneFile();
@@ -721,8 +719,6 @@ namespace CalibrationTables
 
             //открыли, прочитали DOC файлы
             DOCFile doc = new DOCFile(
-                FileEventProcessor,
-                FileEventProcessor,
                 FileEventProcessor,
                 FileEventProcessor);
 

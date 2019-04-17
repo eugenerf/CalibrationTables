@@ -241,12 +241,17 @@ namespace WordReader
             /// <param name="reader">Binary reader for the Compound File</param>
             protected internal CompoundFileBinary(BinaryReader reader)
             {
-                fileReader = reader;            //stored reader to the field
-                CFHeaderIsOK = readCFHeader();  //read and checked the CF Header
-                readDIFAT();                    //read DIFAT
-                readFAT();                      //read FAT
-                readminiFAT();                  //read miniFAT
-                readDEArray();                  //read Directory Entry array
+                fileReader = reader;                //stored reader to the field
+                CFHeaderIsOK = readCFHeader();      //read and checked the CF Header
+                if (CFHeaderIsOK == false)          //if header is not OK then that is not a Compound Binary file
+                {
+                    closeReader();                  //close reader
+                    return;                         //stop construction and return
+                }
+                readDIFAT();                        //read DIFAT
+                readFAT();                          //read FAT
+                readminiFAT();                      //read miniFAT
+                readDEArray();                      //read Directory Entry array
             }
             #endregion
 
