@@ -7,4 +7,6 @@ With this application engineer can watch the calibration table, edit it, fix the
 
 Application is also interesting by the console menu developed specially for it and by the console watch and edit mode.
 
+No preinstalled MS Office needed. The application uses docParser and docxParser classes from the WordReader project.
+
 Code is fully documented in Russian.
